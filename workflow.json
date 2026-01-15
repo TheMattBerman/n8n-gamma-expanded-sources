@@ -140,6 +140,30 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/instagram/profile?handle={{ $json.body.instagram_handle }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.scrapeCreatorsApi.apiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scrapecreators-instagram",
+      "name": "ScrapeCreators - Instagram Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 850],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
         "mode": "combine",
         "mergeByFields": {
           "values": []
@@ -361,6 +385,11 @@
           },
           {
             "node": "ScrapeCreators - LinkedIn Company",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ScrapeCreators - Instagram Profile",
             "type": "main",
             "index": 0
           }
