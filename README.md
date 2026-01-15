@@ -6,16 +6,17 @@ An n8n workflow that takes any competitor URL and generates a comprehensive Gamm
 
 ## What You Get
 
-Input a competitor URL → Get a professional Gamma deck containing:
+Input a competitor URL + social handles → Get a professional 10-slide Gamma deck containing:
 
 1. **Executive Summary** - Threat level and top 5 insights
 2. **Positioning Analysis** - Value prop, audience, differentiators
 3. **Messaging Breakdown** - Brand voice, hooks, proof elements
-4. **Content Strategy** - Pillars, formats, top content
+4. **Content & Social Strategy** - Pillars, formats, social metrics
 5. **Ad Psychology** - Hook patterns, visual style, CTAs
-6. **Gaps & Opportunities** - Where they're vulnerable
-7. **How to Beat Them** - Quick wins, positioning plays, ad ideas
-8. **Next Steps** - CTA to book a call
+6. **SEO Intelligence** - Traffic, keywords, opportunities
+7. **Gaps & Opportunities** - Where they're vulnerable
+8. **How to Beat Them** - Quick wins, positioning plays, ad ideas
+9. **Next Steps** - CTA to book a call
 
 ## Requirements
 
@@ -24,7 +25,9 @@ Input a competitor URL → Get a professional Gamma deck containing:
 | Service | Purpose | Get API Key |
 |---------|---------|-------------|
 | **Firecrawl** | Website scraping | [firecrawl.dev](https://firecrawl.dev) |
-| **Anthropic (Claude)** | AI analysis | [console.anthropic.com](https://console.anthropic.com) |
+| **ScrapeCreators** | Social media & ads data | [scrapecreators.com](https://scrapecreators.com) |
+| **DataForSEO** | SEO intelligence | [dataforseo.com](https://dataforseo.com) |
+| **OpenRouter** | AI analysis (Claude) | [openrouter.ai](https://openrouter.ai) |
 | **Gamma** | Deck generation | [gamma.app](https://gamma.app) (Pro required) |
 
 ### n8n Setup
@@ -51,11 +54,23 @@ Create these credentials in n8n (**Settings** → **Credentials**):
 - Header Name: `Authorization`
 - Header Value: `Bearer YOUR_FIRECRAWL_API_KEY`
 
-#### Anthropic API
+#### ScrapeCreators API
 - Type: Header Auth
-- Name: `anthropicApi`
+- Name: `scrapeCreatorsApi`
 - Header Name: `x-api-key`
-- Header Value: `YOUR_ANTHROPIC_API_KEY`
+- Header Value: `YOUR_SCRAPECREATORS_API_KEY`
+
+#### DataForSEO API
+- Type: Header Auth
+- Name: `dataForSeoApi`
+- Header Name: `Authorization`
+- Header Value: `Basic YOUR_BASE64_CREDENTIALS`
+
+#### OpenRouter API
+- Type: Header Auth
+- Name: `openRouterApi`
+- Header Name: `Authorization`
+- Header Value: `Bearer YOUR_OPENROUTER_API_KEY`
 
 #### Gamma API
 - Type: Header Auth
@@ -82,8 +97,15 @@ In each HTTP Request node, update the credential expressions:
 ```bash
 curl -X POST "YOUR_WEBHOOK_URL" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://competitor-website.com"}'
+  -d '{
+    "url": "https://competitor-website.com",
+    "linkedin_handle": "competitor",
+    "instagram_handle": "competitor",
+    "facebook_handle": "competitor"
+  }'
 ```
+
+Note: Only `url` is required. Social handles are optional for enriched analysis.
 
 ### Response
 
@@ -106,7 +128,10 @@ curl -X POST "YOUR_WEBHOOK_URL" \
    ```json
    {
      "body": {
-       "url": "https://competitor-website.com"
+       "url": "https://competitor-website.com",
+       "linkedin_handle": "competitor",
+       "instagram_handle": "competitor",
+       "facebook_handle": "competitor"
      }
    }
    ```
@@ -128,27 +153,29 @@ Edit the `Format Gamma Prompt` node to:
 - Add/remove slides
 - Customize messaging
 
-### Add More Data Sources
+### Data Sources Included
 
-The workflow is designed to be extended with:
-- **Social scraping** - Add ScrapeCreators or Apify nodes
-- **Ad library data** - Add Meta Ad Library scraping
-- **SEO data** - Add DataForSEO or similar
+The workflow now includes:
+- **Website scraping** - Firecrawl (homepage, about, pricing, blog)
+- **Social media** - ScrapeCreators (LinkedIn, Instagram)
+- **Ad intelligence** - ScrapeCreators (Meta Ad Library)
+- **SEO data** - DataForSEO (domain overview)
 
 ## Workflow Architecture
 
 ```
-[Webhook] → [Firecrawl x4] → [Merge] → [Claude] → [Gamma] → [Response]
-     │           │              │          │          │          │
-     │           ├─ Homepage    │          │          │          │
-     │           ├─ About       │          │          │          │
-     │           ├─ Pricing     │          │          │          │
-     │           └─ Blog        │          │          │          │
-     │                          │          │          │          │
-     │                     Combines    Analyzes   Generates   Returns
-     │                     scraped     data &     Gamma       deck URL
-     └─ Receives URL       data        outputs    deck        to caller
-                                       JSON
+[Webhook] → [Firecrawl x4 + ScrapeCreators x3 + DataForSEO] → [Merge] → [Claude via OpenRouter] → [Gamma] → [Response]
+     │                    │                                      │              │                   │
+     │                    ├─ Homepage                            │              │                   │
+     │                    ├─ About                               │              │                   │
+     │                    ├─ Pricing                             │              │                   │
+     │                    ├─ Blog                                │              │                   │
+     │                    ├─ LinkedIn Company                    │              │                   │
+     │                    ├─ Instagram Profile                   │              │                   │
+     │                    ├─ Meta Ad Library                     │              │                   │
+     │                    └─ SEO Overview                        │              │                   │
+     │                                                      Combines        Analyzes          Generates
+     └─ Receives URL + handles                              all data        via OpenRouter    10-slide deck
 ```
 
 ## Troubleshooting
@@ -158,8 +185,18 @@ The workflow is designed to be extended with:
 - The workflow continues even if individual pages fail
 - Check Firecrawl dashboard for usage limits
 
-### Claude Errors
-- Ensure your Anthropic API key is valid
+### ScrapeCreators Errors
+- LinkedIn/Instagram/Meta Ads nodes have `continueOnFail` enabled
+- Missing social handles will return empty data (graceful degradation)
+- Check API credits at scrapecreators.com dashboard
+
+### DataForSEO Errors
+- SEO node has `continueOnFail` enabled
+- Invalid domains will return empty data
+- Uses Basic auth - ensure credentials are base64 encoded
+
+### OpenRouter/Claude Errors
+- Ensure your OpenRouter API key is valid
 - Check for rate limits if running many analyses
 - Timeout is set to 120s for complex analyses
 
