@@ -188,6 +188,37 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "https://api.dataforseo.com/v3/dataforseo_labs/google/domain_rank_overview/live",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $credentials.dataForSeoApi.apiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"target\": \"{{ $json.body.url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0] }}\"\n  }\n]",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "dataforseo-overview",
+      "name": "DataForSEO - Domain Overview",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 1150],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
         "mode": "combine",
         "mergeByFields": {
           "values": []
@@ -419,6 +450,11 @@
           },
           {
             "node": "ScrapeCreators - Meta Ad Library",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DataForSEO - Domain Overview",
             "type": "main",
             "index": 0
           }
