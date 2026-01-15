@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an **n8n workflow configuration project**, not a traditional code project. It contains a single workflow (`workflow.json`) that generates competitive intelligence presentation decks using AI.
 
-**Pipeline:** Webhook → Firecrawl (scrape competitor site) → Claude (analyze) → Gamma (generate deck) → Response
+**Pipeline:** Webhook → [Firecrawl + ScrapeCreators + DataForSEO] (8 parallel calls) → Claude via OpenRouter (analyze) → Gamma (generate 10-slide deck) → Response
 
 ## Working With This Project
 
@@ -35,7 +35,9 @@ mcp__n8n-mcp__n8n_update_partial_workflow with id and operations array
 1. Import `workflow.json` in n8n (Workflows → Import from File)
 2. Configure credentials in Settings → Credentials:
    - `firecrawlApi` - Header Auth with `Authorization: Bearer <key>`
-   - `anthropicApi` - Header Auth with `x-api-key: <key>`
+   - `scrapeCreatorsApi` - Header Auth with `x-api-key: <key>`
+   - `dataForSeoApi` - Header Auth with `Authorization: Basic <base64>`
+   - `openRouterApi` - Header Auth with `Authorization: Bearer <key>`
    - `gammaApi` - Header Auth with `X-API-KEY: <key>`
 3. Activate the workflow
 
@@ -45,45 +47,46 @@ Trigger via webhook:
 ```bash
 curl -X POST "YOUR_WEBHOOK_URL" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://competitor-website.com"}'
+  -d '{
+    "url": "https://competitor-website.com",
+    "linkedin_handle": "competitor",
+    "instagram_handle": "competitor",
+    "facebook_handle": "competitor"
+  }'
 ```
 
-Or test in n8n UI: Click Webhook Trigger node → Test workflow panel → Enter `{"body": {"url": "https://example.com"}}`
+Or test in n8n UI: Click Webhook Trigger node → Test workflow panel → Enter `{"body": {"url": "https://example.com", "linkedin_handle": "example"}}`
+
+Note: Only `url` is required. Social handles are optional for enriched analysis.
 
 ## Workflow Architecture
 
 ```
 [Webhook Trigger]
-       ↓ (parallel fan-out)
+       ↓ (parallel fan-out - 8 calls)
        ├─→ [Firecrawl - Homepage]
        ├─→ [Firecrawl - About Page] (continueOnFail)
        ├─→ [Firecrawl - Pricing Page] (continueOnFail)
-       └─→ [Firecrawl - Blog] (continueOnFail)
+       ├─→ [Firecrawl - Blog] (continueOnFail)
+       ├─→ [ScrapeCreators - LinkedIn Company] (continueOnFail)
+       ├─→ [ScrapeCreators - Instagram Profile] (continueOnFail)
+       ├─→ [ScrapeCreators - Meta Ad Library] (continueOnFail)
+       └─→ [DataForSEO - Domain Overview] (continueOnFail)
               ↓ (merge)
        [Merge Website Data]
               ↓
-       [Process Website Data] (Code node - combines scraped content)
+       [Process All Data] (Code node - structures all data sources)
               ↓
-       [Claude - Competitive Analysis] (HTTP Request to Anthropic API)
+       [Claude via OpenRouter] (HTTP Request to OpenRouter API)
               ↓
-       [Parse Analysis JSON] (Code node - extracts JSON from Claude response)
+       [Parse Analysis JSON] (Code node)
               ↓
-       [Format Gamma Prompt] (Code node - builds slide-by-slide markdown)
+       [Format Gamma Prompt] (Code node - 10 slides)
               ↓
-       [Gamma - Generate Deck] (HTTP Request to Gamma API)
-              ↓
-       [Wait 10s]
-              ↓
-       [Gamma - Check Status] ←──┐
-              ↓                   │
-       [Is Complete?] ──No──→ [Wait & Retry]
-              ↓ Yes
-       [Format Success Response]
-              ↓
-       [Respond to Webhook]
+       [Gamma - Generate Deck] → [Wait] → [Poll Status] → [Response]
 ```
 
-**17 nodes total:** 1 webhook trigger, 4 Firecrawl HTTP requests, 1 merge, 3 code nodes, 2 Gamma HTTP requests, 2 wait nodes, 1 if node, 1 webhook response
+**21 nodes total:** 1 webhook trigger, 8 data source HTTP requests, 1 merge, 3 code nodes, 2 Gamma HTTP requests, 2 wait nodes, 1 if node, 1 webhook response
 
 ## Key Files
 
@@ -106,14 +109,18 @@ Add new HTTP Request nodes after the Webhook Trigger and connect them to the Mer
 
 ## API Dependencies
 
-| API | Purpose | Rate Limits |
-|-----|---------|-------------|
-| Firecrawl | Website scraping | Check dashboard |
-| Anthropic (claude-sonnet-4-20250514) | Competitive analysis | 120s timeout configured |
-| Gamma | Deck generation (Pro required) | Async with polling |
+| API | Purpose | Auth | Rate Limits |
+|-----|---------|------|-------------|
+| Firecrawl | Website scraping | Bearer token | Check dashboard |
+| ScrapeCreators | LinkedIn, Instagram, Meta Ads | x-api-key header | 100 free calls |
+| DataForSEO | SEO metrics | Basic auth | Pay per call |
+| OpenRouter | Claude AI analysis | Bearer token | Per-model limits |
+| Gamma | Deck generation (Pro required) | X-API-KEY header | Async with polling |
 
 ## Error Handling
 
 - Firecrawl: `retryOnFail: true` on homepage, `continueOnFail: true` on subpages (workflow continues even if /about, /pricing, /blog fail)
-- Claude: 120s timeout for complex analyses
+- ScrapeCreators: `continueOnFail: true` on all nodes (missing social handles return empty data)
+- DataForSEO: `continueOnFail: true` (invalid domains return empty data)
+- OpenRouter/Claude: 120s timeout for complex analyses
 - Gamma: Polling loop checks status every 5-10s until `status === "completed"`
