@@ -116,6 +116,30 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/linkedin/company?url=https://linkedin.com/company/{{ $json.body.linkedin_handle }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.scrapeCreatorsApi.apiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scrapecreators-linkedin",
+      "name": "ScrapeCreators - LinkedIn Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 700],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
         "mode": "combine",
         "mergeByFields": {
           "values": []
@@ -332,6 +356,11 @@
           },
           {
             "node": "Firecrawl - Blog",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ScrapeCreators - LinkedIn Company",
             "type": "main",
             "index": 0
           }
