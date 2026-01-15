@@ -164,6 +164,30 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "=https://api.scrapecreators.com/v1/facebookadlibrary/profile?handle={{ $json.body.facebook_handle }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.scrapeCreatorsApi.apiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scrapecreators-meta-ads",
+      "name": "ScrapeCreators - Meta Ad Library",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 1000],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
         "mode": "combine",
         "mergeByFields": {
           "values": []
@@ -390,6 +414,11 @@
           },
           {
             "node": "ScrapeCreators - Instagram Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ScrapeCreators - Meta Ad Library",
             "type": "main",
             "index": 0
           }
