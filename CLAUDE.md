@@ -6,7 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an **n8n workflow configuration project**, not a traditional code project. It contains a single workflow (`workflow.json`) that generates competitive intelligence presentation decks using AI.
 
-**Pipeline:** Webhook → [Firecrawl + ScrapeCreators + DataForSEO] (8 parallel calls) → Claude via OpenRouter (analyze) → Gamma (generate 10-slide deck) → Response
+**Pipeline:** Webhook → [Firecrawl + ScrapeCreators + DataForSEO] (8 parallel calls) → Claude via OpenRouter (analyze) → Gamma Remix API (fill template with data) → Response
+
+**Note:** This workflow uses Gamma's **Remix API** (`/from-template`) which requires a pre-designed template deck. See "Setting Up Gamma Template" below.
+
+## Setting Up Gamma Template
+
+Before running this workflow, you must create a template deck in Gamma:
+
+1. Go to [gamma.app](https://gamma.app) and create a new presentation
+2. Design a 10-slide competitive playbook template with your branding
+3. Use placeholder content that matches the slide structure in `prompts/deck-structure.md`
+4. Copy the deck ID from the URL: `gamma.app/docs/YOUR_TEMPLATE_ID`
+5. Replace `YOUR_TEMPLATE_ID_HERE` in the workflow's "Gamma - Remix Template" node
+
+The template ID goes in the `gammaId` field of the API request. The workflow will fill your template with competitor analysis data while preserving your design.
 
 ## Working With This Project
 
@@ -83,7 +97,7 @@ Note: Only `url` is required. Social handles are optional for enriched analysis.
               ↓
        [Format Gamma Prompt] (Code node - 10 slides)
               ↓
-       [Gamma - Generate Deck] → [Wait] → [Poll Status] → [Response]
+       [Gamma - Remix Template] → [Wait] → [Poll Status] → [Response]
 ```
 
 **21 nodes total:** 1 webhook trigger, 8 data source HTTP requests, 1 merge, 3 code nodes, 2 Gamma HTTP requests, 2 wait nodes, 1 if node, 1 webhook response
@@ -115,7 +129,7 @@ Add new HTTP Request nodes after the Webhook Trigger and connect them to the Mer
 | ScrapeCreators | LinkedIn, Instagram, Meta Ads | x-api-key header | 100 free calls |
 | DataForSEO | SEO metrics | Basic auth | Pay per call |
 | OpenRouter | Claude AI analysis | Bearer token | Per-model limits |
-| Gamma | Deck generation (Pro required) | X-API-KEY header | Async with polling |
+| Gamma | Deck generation via Remix API (Pro required) | X-API-KEY header | Async with polling |
 
 ## Error Handling
 

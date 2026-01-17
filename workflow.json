@@ -282,25 +282,29 @@
     },
     {
       "parameters": {
-        "url": "https://api.gamma.app/api/v1/generate",
+        "url": "https://public-api.gamma.app/v1.0/generations/from-template",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-API-KEY",
               "value": "={{ $credentials.gammaApi.apiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"type\": \"presentation\",\n  \"topic\": \"{{ $json.company_name }} Competitive Playbook\",\n  \"content\": {{ JSON.stringify($json.prompt) }},\n  \"audience\": \"Marketing and growth teams analyzing competitors\",\n  \"tone\": \"professional\",\n  \"length\": \"detailed\",\n  \"imageStyle\": \"modern\"\n}",
+        "jsonBody": "={\n  \"gammaId\": \"YOUR_TEMPLATE_ID_HERE\",\n  \"prompt\": {{ JSON.stringify($json.prompt) }}\n}",
         "options": {
           "timeout": 60000
         }
       },
       "id": "gamma-generate",
-      "name": "Gamma - Generate Deck",
+      "name": "Gamma - Remix Template",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1700, 300]
@@ -318,7 +322,7 @@
     },
     {
       "parameters": {
-        "url": "=https://api.gamma.app/api/v1/generate/{{ $json.id }}",
+        "url": "=https://public-api.gamma.app/v1.0/generations/{{ $json.generationId }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -367,7 +371,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Format the final response\nconst gammaResponse = $input.first().json;\n\nreturn {\n  json: {\n    success: true,\n    deck_url: gammaResponse.url || gammaResponse.deck_url,\n    deck_id: gammaResponse.id,\n    company_analyzed: gammaResponse.company_name || 'Competitor',\n    generated_at: new Date().toISOString(),\n    message: `Competitive playbook generated successfully! View your deck at: ${gammaResponse.url || gammaResponse.deck_url}`\n  }\n};"
+        "jsCode": "// Format the final response\nconst gammaResponse = $input.first().json;\n\nreturn {\n  json: {\n    success: true,\n    deck_url: gammaResponse.gammaUrl,\n    generation_id: gammaResponse.generationId,\n    credits_used: gammaResponse.credits?.deducted || 0,\n    credits_remaining: gammaResponse.credits?.remaining || 0,\n    generated_at: new Date().toISOString(),\n    message: `Competitive playbook generated successfully! View your deck at: ${gammaResponse.gammaUrl}`\n  }\n};"
       },
       "id": "format-response",
       "name": "Format Success Response",
