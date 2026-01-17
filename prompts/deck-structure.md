@@ -4,21 +4,21 @@ This document defines the prompt structure for the Gamma API to generate the com
 
 ## Gamma API Overview
 
-Gamma's Generate API creates presentations from text prompts. The API:
-- Accepts a text prompt describing what to create
-- Returns a generation ID for polling
-- Provides the deck URL when complete
+This workflow uses Gamma's **Create from Template API** (Remix) to generate presentations. This allows you to:
+- Design a beautiful template once in Gamma's UI
+- Programmatically fill it with new competitor data
+- Maintain consistent branding and visual design
 
 ## API Endpoint
 
 ```
-POST https://api.gamma.app/api/v1/generate
+POST https://public-api.gamma.app/v1.0/generations/from-template
 ```
 
 ## Request Headers
 
 ```
-X-API-KEY: your_gamma_api_key
+X-API-KEY: sk-gamma-xxxxxxxx
 Content-Type: application/json
 ```
 
@@ -26,17 +26,19 @@ Content-Type: application/json
 
 ```json
 {
-  "type": "presentation",
-  "topic": "{{company_name}} Competitive Playbook",
-  "audience": "Marketing and growth teams analyzing competitors",
-  "tone": "professional, direct, tactical",
-  "length": "detailed",
-  "outline": "custom",
-  "customOutline": "{{formatted_outline}}",
-  "imageStyle": "modern",
-  "cardCount": 10
+  "gammaId": "YOUR_TEMPLATE_ID_HERE",
+  "prompt": "{{formatted_competitor_analysis}}",
+  "themeId": "optional - defaults to template theme",
+  "exportAs": "pdf or pptx (optional)"
 }
 ```
+
+## Getting Your Template ID
+
+1. Create your template deck in Gamma's UI (gamma.app)
+2. Design it with your branding, colors, and layout
+3. Copy the deck ID from the URL: `gamma.app/docs/YOUR_TEMPLATE_ID`
+4. Replace `YOUR_TEMPLATE_ID_HERE` in the workflow
 
 ## Custom Outline Template
 
@@ -306,43 +308,42 @@ return {
 };
 ```
 
-### Step 3: Call Gamma API
+### Step 3: Call Gamma Remix API
 
 HTTP Request node configuration:
 
 ```json
 {
   "method": "POST",
-  "url": "https://api.gamma.app/api/v1/generate",
+  "url": "https://public-api.gamma.app/v1.0/generations/from-template",
   "headers": {
     "X-API-KEY": "={{$credentials.gammaApi.apiKey}}",
     "Content-Type": "application/json"
   },
   "body": {
-    "type": "presentation",
-    "topic": "={{$json.company_name}} Competitive Playbook",
-    "content": "={{$json.prompt}}",
-    "audience": "Marketing and growth teams",
-    "tone": "professional",
-    "imageStyle": "modern"
+    "gammaId": "YOUR_TEMPLATE_ID_HERE",
+    "prompt": "={{$json.prompt}}"
   }
 }
 ```
 
 ### Step 4: Poll for Completion
 
-The Gamma API is async. Add a polling loop:
+The Gamma API is async. Poll the status endpoint:
+
+**Endpoint:** `GET https://public-api.gamma.app/v1.0/generations/{generationId}`
 
 ```javascript
 // Check generation status
-const generationId = $input.first().json.id;
+const generationId = $input.first().json.generationId;
 const status = $input.first().json.status;
 
 if (status === 'completed') {
   return {
     json: {
-      deck_url: $input.first().json.url,
-      deck_id: generationId,
+      deck_url: $input.first().json.gammaUrl,
+      generation_id: generationId,
+      credits_used: $input.first().json.credits?.deducted,
       status: 'completed'
     }
   };
@@ -350,17 +351,17 @@ if (status === 'completed') {
   throw new Error('Gamma generation failed');
 } else {
   // Still processing - continue polling
-  return { json: { status: 'processing', id: generationId } };
+  return { json: { status: 'processing', generationId: generationId } };
 }
 ```
 
 ## Output
 
 The final output should include:
-- `deck_url`: The shareable Gamma deck link
-- `deck_id`: For future reference
-- `company_name`: For email/notification personalization
-- `analysis`: The full analysis JSON for records
+- `deck_url`: The shareable Gamma deck link (`gammaUrl` from API)
+- `generation_id`: For future reference
+- `credits_used`: API credits consumed
+- `credits_remaining`: Remaining API credits
 
 ## Theme Recommendations
 
