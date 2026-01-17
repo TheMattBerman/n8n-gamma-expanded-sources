@@ -21,25 +21,13 @@
     {
       "parameters": {
         "formTitle": "Competitor Playbook Generator",
-        "formDescription": "Enter a competitor URL to generate a comprehensive playbook",
+        "formDescription": "Enter a competitor URL - social handles will be auto-detected from their website",
         "formFields": {
           "values": [
             {
               "fieldLabel": "Competitor URL",
               "placeholder": "https://competitor.com",
               "requiredField": true
-            },
-            {
-              "fieldLabel": "LinkedIn Handle",
-              "placeholder": "company-name"
-            },
-            {
-              "fieldLabel": "Instagram Handle",
-              "placeholder": "companyname"
-            },
-            {
-              "fieldLabel": "Facebook Handle",
-              "placeholder": "companyname"
             }
           ]
         },
@@ -57,7 +45,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Normalize form input to match webhook structure\nconst input = $input.first().json;\n\nreturn {\n  json: {\n    body: {\n      url: input['Competitor URL'] || input.url,\n      linkedin_handle: input['LinkedIn Handle'] || input.linkedin_handle || '',\n      instagram_handle: input['Instagram Handle'] || input.instagram_handle || '',\n      facebook_handle: input['Facebook Handle'] || input.facebook_handle || ''\n    }\n  }\n};"
+        "jsCode": "// Normalize form input - just extract URL\nconst input = $input.first().json;\n\nreturn {\n  json: {\n    body: {\n      url: input['Competitor URL'] || input.url\n    },\n    trigger_type: 'form'\n  }\n};"
       },
       "id": "8737be57-ad70-4607-afbc-4e208b28eb20",
       "name": "Normalize Form Input",
@@ -70,6 +58,7 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "https://api.firecrawl.dev/v1/scrape",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -96,6 +85,7 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "https://api.firecrawl.dev/v1/scrape",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -123,6 +113,7 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "https://api.firecrawl.dev/v1/scrape",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -150,6 +141,7 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "https://api.firecrawl.dev/v1/scrape",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -227,7 +219,7 @@
     },
     {
       "parameters": {
-        "url": "=https://api.scrapecreators.com/v1/facebookadlibrary/profile?handle={{ $json.body.facebook_handle }}",
+        "url": "=https://api.scrapecreators.com/v1/facebookadlibrary/profile?handle={{ $json.body.facebook_page_id || $json.body.facebook_page_alias }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
@@ -281,7 +273,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Combine all data sources\nconst items = $input.all();\n\nlet data = {\n  website: {\n    homepage: '',\n    about: '',\n    pricing: '',\n    blog: ''\n  },\n  social: {\n    linkedin: null,\n    instagram: null\n  },\n  ads: {\n    meta: null\n  },\n  seo: null\n};\n\n// Process each input\nfor (const item of items) {\n  const json = item.json;\n\n  // Firecrawl website data\n  if (json.data && json.data.markdown) {\n    const url = json.data.metadata?.url || '';\n    const content = json.data.markdown.substring(0, 15000);\n\n    if (url.includes('/about')) {\n      data.website.about = content;\n    } else if (url.includes('/pricing')) {\n      data.website.pricing = content;\n    } else if (url.includes('/blog')) {\n      data.website.blog = content;\n    } else if (json.data.metadata?.url) {\n      data.website.homepage = content;\n    }\n  }\n\n  // ScrapeCreators LinkedIn\n  if (json.name && json.employeeCount !== undefined) {\n    data.social.linkedin = {\n      name: json.name,\n      description: json.description,\n      slogan: json.slogan,\n      employeeCount: json.employeeCount,\n      website: json.website,\n      location: json.location,\n      posts: json.posts || []\n    };\n  }\n\n  // ScrapeCreators Instagram\n  if (json.username && json.followerCount !== undefined) {\n    data.social.instagram = {\n      username: json.username,\n      fullName: json.fullName,\n      bio: json.bio,\n      followerCount: json.followerCount,\n      followingCount: json.followingCount,\n      postCount: json.postCount,\n      posts: (json.posts || []).slice(0, 12)\n    };\n  }\n\n  // ScrapeCreators Meta Ads\n  if (json.ads || json.adCount !== undefined) {\n    data.ads.meta = {\n      adCount: json.adCount || (json.ads ? json.ads.length : 0),\n      ads: (json.ads || []).slice(0, 10),\n      pageInfo: json.pageInfo\n    };\n  }\n\n  // DataForSEO\n  if (json.tasks && json.tasks[0]?.result) {\n    const seoResult = json.tasks[0].result[0];\n    if (seoResult?.metrics) {\n      data.seo = {\n        organicTraffic: seoResult.metrics.organic?.etv,\n        organicKeywords: seoResult.metrics.organic?.count,\n        paidTraffic: seoResult.metrics.paid?.etv,\n        estimatedValue: seoResult.metrics.organic?.estimated_paid_traffic_cost\n      };\n    }\n  }\n}\n\n// Get original URL from webhook\nconst originalUrl = items[0]?.json?.body?.url || 'Unknown';\n\nreturn {\n  json: {\n    original_url: originalUrl,\n    website_data: data.website,\n    social_data: data.social,\n    ad_data: data.ads,\n    seo_data: data.seo,\n    scraped_at: new Date().toISOString()\n  }\n};"
+        "jsCode": "// Combine all data sources\nconst items = $input.all();\n\nlet data = {\n  website: {\n    homepage: '',\n    about: '',\n    pricing: '',\n    blog: ''\n  },\n  social: {\n    linkedin: null,\n    instagram: null\n  },\n  ads: {\n    meta: null\n  },\n  seo: null\n};\n\nlet originalUrl = 'Unknown';\n\n// Process each input\nfor (const item of items) {\n  const json = item.json;\n\n  // Homepage data from Extract Social Handles node\n  if (json.homepage_data && json.homepage_data.markdown) {\n    const content = json.homepage_data.markdown.substring(0, 15000);\n    data.website.homepage = content;\n    originalUrl = json.body?.url || json.homepage_data.metadata?.url || originalUrl;\n  }\n\n  // Firecrawl website data (About, Pricing, Blog)\n  if (json.data && json.data.markdown) {\n    const url = json.data.metadata?.url || '';\n    const content = json.data.markdown.substring(0, 15000);\n\n    if (url.includes('/about')) {\n      data.website.about = content;\n    } else if (url.includes('/pricing')) {\n      data.website.pricing = content;\n    } else if (url.includes('/blog')) {\n      data.website.blog = content;\n    }\n  }\n\n  // ScrapeCreators LinkedIn\n  if (json.name && json.employeeCount !== undefined) {\n    data.social.linkedin = {\n      name: json.name,\n      description: json.description,\n      slogan: json.slogan,\n      employeeCount: json.employeeCount,\n      website: json.website,\n      location: json.location,\n      posts: json.posts || []\n    };\n  }\n\n  // ScrapeCreators Instagram\n  if (json.username && json.followerCount !== undefined) {\n    data.social.instagram = {\n      username: json.username,\n      fullName: json.fullName,\n      bio: json.bio,\n      followerCount: json.followerCount,\n      followingCount: json.followingCount,\n      postCount: json.postCount,\n      posts: (json.posts || []).slice(0, 12)\n    };\n  }\n\n  // ScrapeCreators Meta Ads\n  if (json.ads || json.adCount !== undefined) {\n    data.ads.meta = {\n      adCount: json.adCount || (json.ads ? json.ads.length : 0),\n      ads: (json.ads || []).slice(0, 10),\n      pageInfo: json.pageInfo\n    };\n  }\n\n  // DataForSEO\n  if (json.tasks && json.tasks[0]?.result) {\n    const seoResult = json.tasks[0].result[0];\n    if (seoResult?.metrics) {\n      data.seo = {\n        organicTraffic: seoResult.metrics.organic?.etv,\n        organicKeywords: seoResult.metrics.organic?.count,\n        paidTraffic: seoResult.metrics.paid?.etv,\n        estimatedValue: seoResult.metrics.organic?.estimated_paid_traffic_cost\n      };\n    }\n  }\n}\n\nreturn {\n  json: {\n    original_url: originalUrl,\n    website_data: data.website,\n    social_data: data.social,\n    ad_data: data.ads,\n    seo_data: data.seo,\n    scraped_at: new Date().toISOString()\n  }\n};"
       },
       "id": "2034832c-32e9-4e10-8d2a-4b61d040ecd4",
       "name": "Process Website Data",
@@ -308,7 +300,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"anthropic/claude-sonnet-4\",\n  \"max_tokens\": 8000,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an elite competitive intelligence analyst. Your analysis is direct, actionable, and data-driven. You focus on 'stealable' tactics and specific recommendations. Always output valid JSON.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this competitor and generate a comprehensive playbook breakdown.\\n\\n## COMPANY URL\\n{{ $json.original_url }}\\n\\n## HOMEPAGE CONTENT\\n{{ $json.website_data.homepage }}\\n\\n## ABOUT PAGE\\n{{ $json.website_data.about }}\\n\\n## PRICING PAGE\\n{{ $json.website_data.pricing }}\\n\\n## BLOG CONTENT\\n{{ $json.website_data.blog }}\\n\\n## LINKEDIN DATA\\n{{ JSON.stringify($json.social_data.linkedin) }}\\n\\n## INSTAGRAM DATA\\n{{ JSON.stringify($json.social_data.instagram) }}\\n\\n## META ADS DATA\\n{{ JSON.stringify($json.ad_data.meta) }}\\n\\n## SEO DATA\\n{{ JSON.stringify($json.seo_data) }}\\n\\n---\\n\\nGenerate your analysis as a JSON object with this exact structure:\\n\\n{\\n  \\\"company_name\\\": \\\"extracted company name\\\",\\n  \\\"company_url\\\": \\\"the URL analyzed\\\",\\n  \\\"analysis_date\\\": \\\"today's date\\\",\\n  \\\"executive_summary\\\": {\\n    \\\"one_liner\\\": \\\"One sentence summary\\\",\\n    \\\"threat_level\\\": \\\"LOW | MEDIUM | HIGH | CRITICAL\\\",\\n    \\\"key_insights\\\": [\\\"insight 1\\\", \\\"insight 2\\\", \\\"insight 3\\\", \\\"insight 4\\\", \\\"insight 5\\\"]\\n  },\\n  \\\"positioning\\\": {\\n    \\\"value_proposition\\\": \\\"Their core value prop\\\",\\n    \\\"target_audience\\\": \\\"Who they sell to\\\",\\n    \\\"key_differentiators\\\": [\\\"diff 1\\\", \\\"diff 2\\\", \\\"diff 3\\\"],\\n    \\\"market_position\\\": \\\"Leader | Challenger | Niche | Emerging\\\"\\n  },\\n  \\\"messaging\\\": {\\n    \\\"brand_voice\\\": \\\"Their tone and style\\\",\\n    \\\"primary_hooks\\\": [{\\\"hook\\\": \\\"exact text\\\", \\\"type\\\": \\\"Pain | Gain | Fear | Curiosity\\\", \\\"effectiveness\\\": \\\"why it works\\\"}],\\n    \\\"key_phrases\\\": [\\\"phrase 1\\\", \\\"phrase 2\\\"],\\n    \\\"proof_elements\\\": [\\\"proof 1\\\", \\\"proof 2\\\"]\\n  },\\n  \\\"content_strategy\\\": {\\n    \\\"content_pillars\\\": [\\\"topic 1\\\", \\\"topic 2\\\"],\\n    \\\"formats_used\\\": [\\\"blog\\\", \\\"video\\\"],\\n    \\\"publishing_frequency\\\": \\\"how often\\\",\\n    \\\"top_performing_content\\\": [{\\\"title\\\": \\\"content title\\\", \\\"format\\\": \\\"type\\\", \\\"why_it_works\\\": \\\"analysis\\\"}],\\n    \\\"distribution_channels\\\": [\\\"channel 1\\\", \\\"channel 2\\\"],\\n    \\\"social_metrics\\\": {\\n      \\\"linkedin_followers\\\": \\\"count or N/A\\\",\\n      \\\"instagram_followers\\\": \\\"count or N/A\\\",\\n      \\\"posting_frequency\\\": \\\"how often\\\",\\n      \\\"engagement_rate\\\": \\\"estimate or N/A\\\"\\n    }\\n  },\\n  \\\"ad_psychology\\\": {\\n    \\\"ad_volume\\\": \\\"number of active ads or N/A\\\",\\n    \\\"primary_ad_types\\\": [\\\"type 1\\\"],\\n    \\\"hook_patterns\\\": [{\\\"pattern\\\": \\\"pattern name\\\", \\\"example\\\": \\\"text\\\", \\\"psychological_trigger\\\": \\\"trigger\\\"}],\\n    \\\"visual_style\\\": \\\"description\\\",\\n    \\\"cta_patterns\\\": [\\\"cta 1\\\"]\\n  },\\n  \\\"seo_intelligence\\\": {\\n    \\\"estimated_traffic\\\": \\\"monthly organic traffic or N/A\\\",\\n    \\\"organic_keywords\\\": \\\"number of ranking keywords or N/A\\\",\\n    \\\"estimated_traffic_value\\\": \\\"dollar value or N/A\\\",\\n    \\\"top_opportunities\\\": [\\\"keyword gap 1\\\", \\\"keyword gap 2\\\"]\\n  },\\n  \\\"gaps_and_opportunities\\\": {\\n    \\\"content_gaps\\\": [{\\\"gap\\\": \\\"what's missing\\\", \\\"opportunity\\\": \\\"how to exploit\\\"}],\\n    \\\"messaging_gaps\\\": [{\\\"gap\\\": \\\"angle missing\\\", \\\"opportunity\\\": \\\"how to exploit\\\"}],\\n    \\\"audience_gaps\\\": [{\\\"gap\\\": \\\"segment ignored\\\", \\\"opportunity\\\": \\\"how to capture\\\"}]\\n  },\\n  \\\"how_to_beat_them\\\": {\\n    \\\"quick_wins\\\": [{\\\"tactic\\\": \\\"action\\\", \\\"why\\\": \\\"reason\\\", \\\"effort\\\": \\\"LOW | MEDIUM | HIGH\\\"}],\\n    \\\"positioning_plays\\\": [{\\\"play\\\": \\\"strategy\\\", \\\"execution\\\": \\\"how to do it\\\"}],\\n    \\\"content_to_steal\\\": [{\\\"what\\\": \\\"content idea\\\", \\\"your_angle\\\": \\\"improvement\\\"}],\\n    \\\"ad_ideas\\\": [{\\\"concept\\\": \\\"ad concept\\\", \\\"hook\\\": \\\"suggested hook\\\"}]\\n  }\\n}\\n\\nReturn ONLY the JSON, no other text.\"\n    }\n  ]\n}",
+        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4.5', max_tokens: 8000, messages: [{ role: 'system', content: 'You are an elite competitive intelligence analyst. Your analysis is direct, actionable, and data-driven. You focus on stealable tactics and specific recommendations. Always output valid JSON.' }, { role: 'user', content: 'Analyze this competitor and generate a comprehensive playbook breakdown.\\n\\n## COMPANY URL\\n' + $json.original_url + '\\n\\n## HOMEPAGE CONTENT\\n' + ($json.website_data.homepage || 'N/A') + '\\n\\n## ABOUT PAGE\\n' + ($json.website_data.about || 'N/A') + '\\n\\n## PRICING PAGE\\n' + ($json.website_data.pricing || 'N/A') + '\\n\\n## BLOG CONTENT\\n' + ($json.website_data.blog || 'N/A') + '\\n\\n## LINKEDIN DATA\\n' + JSON.stringify($json.social_data.linkedin) + '\\n\\n## INSTAGRAM DATA\\n' + JSON.stringify($json.social_data.instagram) + '\\n\\n## META ADS DATA\\n' + JSON.stringify($json.ad_data.meta) + '\\n\\n## SEO DATA\\n' + JSON.stringify($json.seo_data) + '\\n\\n---\\n\\nGenerate your analysis as a JSON object with this exact structure:\\n\\n{\\n  \"company_name\": \"extracted company name\",\\n  \"company_url\": \"the URL analyzed\",\\n  \"analysis_date\": \"today s date\",\\n  \"executive_summary\": {\\n    \"one_liner\": \"One sentence summary\",\\n    \"threat_level\": \"LOW | MEDIUM | HIGH | CRITICAL\",\\n    \"key_insights\": [\"insight 1\", \"insight 2\", \"insight 3\", \"insight 4\", \"insight 5\"]\\n  },\\n  \"positioning\": {\\n    \"value_proposition\": \"Their core value prop\",\\n    \"target_audience\": \"Who they sell to\",\\n    \"key_differentiators\": [\"diff 1\", \"diff 2\", \"diff 3\"],\\n    \"market_position\": \"Leader | Challenger | Niche | Emerging\"\\n  },\\n  \"messaging\": {\\n    \"brand_voice\": \"Their tone and style\",\\n    \"primary_hooks\": [{\"hook\": \"exact text\", \"type\": \"Pain | Gain | Fear | Curiosity\", \"effectiveness\": \"why it works\"}],\\n    \"key_phrases\": [\"phrase 1\", \"phrase 2\"],\\n    \"proof_elements\": [\"proof 1\", \"proof 2\"]\\n  },\\n  \"content_strategy\": {\\n    \"content_pillars\": [\"topic 1\", \"topic 2\"],\\n    \"formats_used\": [\"blog\", \"video\"],\\n    \"publishing_frequency\": \"how often\",\\n    \"top_performing_content\": [{\"title\": \"content title\", \"format\": \"type\", \"why_it_works\": \"analysis\"}],\\n    \"distribution_channels\": [\"channel 1\", \"channel 2\"],\\n    \"social_metrics\": {\\n      \"linkedin_followers\": \"count or N/A\",\\n      \"instagram_followers\": \"count or N/A\",\\n      \"posting_frequency\": \"how often\",\\n      \"engagement_rate\": \"estimate or N/A\"\\n    }\\n  },\\n  \"ad_psychology\": {\\n    \"ad_volume\": \"number of active ads or N/A\",\\n    \"primary_ad_types\": [\"type 1\"],\\n    \"hook_patterns\": [{\"pattern\": \"pattern name\", \"example\": \"text\", \"psychological_trigger\": \"trigger\"}],\\n    \"visual_style\": \"description\",\\n    \"cta_patterns\": [\"cta 1\"]\\n  },\\n  \"seo_intelligence\": {\\n    \"estimated_traffic\": \"monthly organic traffic or N/A\",\\n    \"organic_keywords\": \"number of ranking keywords or N/A\",\\n    \"estimated_traffic_value\": \"dollar value or N/A\",\\n    \"top_opportunities\": [\"keyword gap 1\", \"keyword gap 2\"]\\n  },\\n  \"gaps_and_opportunities\": {\\n    \"content_gaps\": [{\"gap\": \"what is missing\", \"opportunity\": \"how to exploit\"}],\\n    \"messaging_gaps\": [{\"gap\": \"angle missing\", \"opportunity\": \"how to exploit\"}],\\n    \"audience_gaps\": [{\"gap\": \"segment ignored\", \"opportunity\": \"how to capture\"}]\\n  },\\n  \"how_to_beat_them\": {\\n    \"quick_wins\": [{\"tactic\": \"action\", \"why\": \"reason\", \"effort\": \"LOW | MEDIUM | HIGH\"}],\\n    \"positioning_plays\": [{\"play\": \"strategy\", \"execution\": \"how to do it\"}],\\n    \"content_to_steal\": [{\"what\": \"content idea\", \"your_angle\": \"improvement\"}],\\n    \"ad_ideas\": [{\"concept\": \"ad concept\", \"hook\": \"suggested hook\"}]\\n  }\\n}\\n\\nReturn ONLY the JSON, no other text.' }] }) }}",
         "options": {
           "timeout": 120000
         }
@@ -464,6 +456,38 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "trigger-check",
+              "leftValue": "={{ $('Webhook Trigger').isExecuted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-trigger-type",
+      "name": "Is Webhook Trigger?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        -176
+      ]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
@@ -473,8 +497,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        2096,
-        -176
+        2336,
+        -272
       ]
     },
     {
@@ -488,6 +512,57 @@
         32
       ],
       "webhookId": "29ffda51-b7c3-40e2-8c76-ffc84de3d599"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract company name and social handles from homepage\nconst input = $input.first().json;\nconst html = input.data?.html || '';\nconst markdown = input.data?.markdown || '';\nconst content = html + ' ' + markdown;\nconst originalUrl = input.data?.metadata?.url || '';\n\n// Extract company name from various sources\nlet company_name = '';\n\n// Try page title first\nconst titleMatch = html.match(/<title[^>]*>([^<]+)<\\/title>/i);\nif (titleMatch) {\n  // Clean up title - remove common suffixes\n  company_name = titleMatch[1]\n    .split(/[|\\-–—]/)[0]\n    .replace(/Home|Homepage|Welcome to/gi, '')\n    .trim();\n}\n\n// Try og:site_name meta tag\nif (!company_name) {\n  const ogMatch = html.match(/property=[\"']og:site_name[\"'][^>]*content=[\"']([^\"']+)[\"']/i);\n  if (ogMatch) company_name = ogMatch[1].trim();\n}\n\n// Try first H1\nif (!company_name) {\n  const h1Match = html.match(/<h1[^>]*>([^<]+)<\\/h1>/i);\n  if (h1Match) company_name = h1Match[1].trim();\n}\n\n// Fallback to domain name\nif (!company_name) {\n  const domainMatch = originalUrl.match(/\\/\\/(?:www\\.)?([^.\\/]+)/i);\n  if (domainMatch) company_name = domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1);\n}\n\n// Extract LinkedIn company handle from website links\nlet linkedin_handle = '';\nconst linkedinMatch = content.match(/linkedin\\.com\\/company\\/([a-zA-Z0-9_-]+)/i);\nif (linkedinMatch) {\n  linkedin_handle = linkedinMatch[1];\n}\n\n// Pass through for ScrapeCreators company search\nreturn {\n  json: {\n    body: {\n      url: originalUrl,\n      company_name,\n      linkedin_handle\n    },\n    homepage_data: input.data\n  }\n};"
+      },
+      "id": "extract-social-handles",
+      "name": "Extract Social Handles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.scrapecreators.com/v1/facebook/adLibrary/search/companies?query={{ encodeURIComponent($json.body.company_name) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scrapecreators-company-search",
+      "name": "ScrapeCreators - Company Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "55pCjUM1Y9yvV9Ru",
+          "name": "Scrapecreators"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process company search results and combine with homepage data\nconst input = $input.first().json;\nconst prevData = $('Extract Social Handles').first().json;\n\n// Get the best match from search results (first result)\nconst searchResults = input.searchResults || [];\nconst bestMatch = searchResults[0] || {};\n\n// Extract Facebook page_id and Instagram username from search\nconst facebook_page_id = bestMatch.page_id || '';\nconst instagram_handle = bestMatch.ig_username || '';\nconst facebook_page_alias = bestMatch.page_alias || '';\n\nreturn {\n  json: {\n    body: {\n      url: prevData.body.url,\n      company_name: prevData.body.company_name,\n      linkedin_handle: prevData.body.linkedin_handle,\n      instagram_handle: instagram_handle,\n      facebook_page_id: facebook_page_id,\n      facebook_page_alias: facebook_page_alias\n    },\n    homepage_data: prevData.homepage_data,\n    search_result: bestMatch,\n    all_search_results: searchResults.slice(0, 3)\n  }\n};"
+      },
+      "id": "process-search-results",
+      "name": "Process Search Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        240
+      ]
     }
   ],
   "pinData": {},
@@ -510,41 +585,6 @@
             "node": "Firecrawl - Homepage",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Firecrawl - About Page",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Firecrawl - Pricing Page",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Firecrawl - Blog",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "ScrapeCreators - LinkedIn Company",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "ScrapeCreators - Instagram Profile",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "ScrapeCreators - Meta Ad Library",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "DataForSEO - Domain Overview",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -556,7 +596,46 @@
             "node": "Firecrawl - Homepage",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "Firecrawl - Homepage": {
+      "main": [
+        [
+          {
+            "node": "Extract Social Handles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Social Handles": {
+      "main": [
+        [
+          {
+            "node": "ScrapeCreators - Company Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ScrapeCreators - Company Search": {
+      "main": [
+        [
+          {
+            "node": "Process Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Search Results": {
+      "main": [
+        [
           {
             "node": "Firecrawl - About Page",
             "type": "main",
@@ -591,11 +670,16 @@
             "node": "DataForSEO - Domain Overview",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Process Website Data",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
     },
-    "Firecrawl - Homepage": {
+    "Firecrawl - About Page": {
       "main": [
         [
           {
@@ -782,11 +866,23 @@
       "main": [
         [
           {
-            "node": "Respond to Webhook",
+            "node": "Is Webhook Trigger?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Is Webhook Trigger?": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Wait & Retry": {
