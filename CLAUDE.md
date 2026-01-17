@@ -57,50 +57,60 @@ mcp__n8n-mcp__n8n_update_partial_workflow with id and operations array
 
 ### Testing
 
-Trigger via webhook:
+**Via Form (recommended):** Use the Form Trigger which provides a simple web form for entering just the competitor URL.
+
+**Via Webhook:**
 ```bash
 curl -X POST "YOUR_WEBHOOK_URL" \
   -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://competitor-website.com",
-    "linkedin_handle": "competitor",
-    "instagram_handle": "competitor",
-    "facebook_handle": "competitor"
-  }'
+  -d '{"url": "https://competitor-website.com"}'
 ```
 
-Or test in n8n UI: Click Webhook Trigger node → Test workflow panel → Enter `{"body": {"url": "https://example.com", "linkedin_handle": "example"}}`
+**Via n8n UI:** Click Form Trigger node → Test workflow panel → Enter competitor URL
 
-Note: Only `url` is required. Social handles are optional for enriched analysis.
+Note: Only `url` is required. Social handles are automatically extracted from the homepage and discovered via ScrapeCreators company search.
 
 ## Workflow Architecture
 
 ```
-[Webhook Trigger]
-       ↓ (parallel fan-out - 8 calls)
-       ├─→ [Firecrawl - Homepage]
-       ├─→ [Firecrawl - About Page] (continueOnFail)
-       ├─→ [Firecrawl - Pricing Page] (continueOnFail)
-       ├─→ [Firecrawl - Blog] (continueOnFail)
-       ├─→ [ScrapeCreators - LinkedIn Company] (continueOnFail)
-       ├─→ [ScrapeCreators - Instagram Profile] (continueOnFail)
-       ├─→ [ScrapeCreators - Meta Ad Library] (continueOnFail)
-       └─→ [DataForSEO - Domain Overview] (continueOnFail)
-              ↓ (merge)
-       [Merge Website Data]
-              ↓
-       [Process All Data] (Code node - structures all data sources)
-              ↓
-       [Claude via OpenRouter] (HTTP Request to OpenRouter API)
-              ↓
-       [Parse Analysis JSON] (Code node)
-              ↓
-       [Format Gamma Prompt] (Code node - 10 slides)
-              ↓
-       [Gamma - Remix Template] → [Wait] → [Poll Status] → [Response]
+[Form Trigger] ──→ [Normalize Form Input] ──┐
+                                            ├──→ [Firecrawl - Homepage]
+[Webhook Trigger] ──────────────────────────┘            ↓
+                                            [Extract Social Handles]
+                                                         ↓
+                                       [ScrapeCreators - Company Search]
+                                                         ↓
+                                            [Process Search Results]
+                                                         ↓
+                        (parallel fan-out to 7 scrapers + Merge)
+       ┌─────────────────────────────────────────────────┴─────────────────────────────────────────────────┐
+       ├─→ [Firecrawl - About Page] (continueOnFail) ─────────────────────────────────────────────────────┐
+       ├─→ [Firecrawl - Pricing Page] (continueOnFail) ───────────────────────────────────────────────────┤
+       ├─→ [Firecrawl - Blog] (continueOnFail) ───────────────────────────────────────────────────────────┤
+       ├─→ [ScrapeCreators - LinkedIn Company] (continueOnFail) ──────────────────────────────────────────┼──→ [Merge All Data]
+       ├─→ [ScrapeCreators - Instagram Profile] (continueOnFail) ─────────────────────────────────────────┤          ↓
+       ├─→ [ScrapeCreators - Meta Ad Library] (continueOnFail) ───────────────────────────────────────────┤  [Process Website Data]
+       ├─→ [DataForSEO - Domain Overview] (continueOnFail) ───────────────────────────────────────────────┤          ↓
+       └─→ (homepage data from Process Search Results) ───────────────────────────────────────────────────┘  [Claude - Competitive Analysis]
+                                                                                                                      ↓
+                                                                                                             [Parse Analysis JSON]
+                                                                                                                      ↓
+                                                                                                            [Format Gamma Prompt]
+                                                                                                                      ↓
+                                                         [Gamma - Remix Template] → [Wait 10s] → [Gamma - Check Status]
+                                                                                                          ↓
+                                                                    [Is Complete?] ──(no)──→ [Wait & Retry] ───┘
+                                                                          ↓ (yes)
+                                                                [Format Success Response]
+                                                                          ↓
+                                                                [Is Webhook Trigger?]
+                                                                    ↓ (yes)      ↓ (no)
+                                                            [Respond to Webhook]  (end)
 ```
 
-**21 nodes total:** 1 webhook trigger, 8 data source HTTP requests, 1 merge, 3 code nodes, 2 Gamma HTTP requests, 2 wait nodes, 1 if node, 1 webhook response
+**Key Feature:** The `Merge All Data` node (mode: append) waits for ALL 8 parallel inputs before proceeding, ensuring complete data collection.
+
+**22 nodes total:** 2 triggers (Form + Webhook), 8 data source HTTP requests, 1 merge, 5 code nodes, 2 Gamma HTTP requests, 2 wait nodes, 2 if nodes, 1 webhook response
 
 ## Key Files
 
