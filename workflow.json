@@ -349,12 +349,13 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "https://public-api.gamma.app/v1.0/generations/from-template",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"gammaId\": \"eoome91twvsxzzj\",\n  \"prompt\": {{ JSON.stringify($json.prompt) }}\n}",
+        "jsonBody": "={\n  \"gammaId\": \"g_8s1srwjr2mn34s9\",\n  \"prompt\": {{ JSON.stringify($json.prompt) }}\n}",
         "options": {
           "timeout": 60000
         }

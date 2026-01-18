@@ -17,10 +17,10 @@ Before running this workflow, you must create a template deck in Gamma:
 1. Go to [gamma.app](https://gamma.app) and create a new presentation
 2. Design a 10-slide competitive playbook template with your branding
 3. Use placeholder content that matches the slide structure in `prompts/deck-structure.md`
-4. Copy the deck ID from the URL: `gamma.app/docs/YOUR_TEMPLATE_ID`
-5. Replace `YOUR_TEMPLATE_ID_HERE` in the workflow's "Gamma - Remix Template" node
+4. Copy the deck ID from the URL (format: `g_XXXXXXXXXXXX`)
+5. Replace the `gammaId` value in the workflow's "Gamma - Remix Template" node
 
-The template ID goes in the `gammaId` field of the API request. The workflow will fill your template with competitor analysis data while preserving your design.
+The template ID goes in the `gammaId` field of the POST request body. The workflow will fill your template with competitor analysis data while preserving your design.
 
 ## Working With This Project
 
